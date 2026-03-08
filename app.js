@@ -1,4 +1,4 @@
-import { db, ref, get, set, update, runTransaction } from './firebase.js';
+import { db, ref, get, set, update } from './firebase.js';
 import { startGame, stopGame } from './game.js';
 
 const screens = {
@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', checkReconnect);
 
 function showScreen(screenName) {
     Object.values(screens).forEach(s => s.classList.add('hidden'));
-    screens[screenName].classList.remove('hidden');
+    if(screens[screenName]) screens[screenName].classList.remove('hidden');
 }
 
 function showToast(msg) {
@@ -26,28 +26,41 @@ function showToast(msg) {
 
 document.getElementById('btn-create').addEventListener('click', async () => {
     const name = document.getElementById('player-name').value.trim();
-    if (!name) return showToast("Enter your name");
+    if (!name) return showToast("Enter your name!");
     
     showScreen('loading');
-    const counterRef = ref(db, 'global/matchCounter');
-    const tx = await runTransaction(counterRef, (current) => (current || 0) + 1);
-    const code = `Tech_${tx.snapshot.val()}`;
     
-    await set(ref(db, `matches/${code}`), {
-        player1: { name }, player2: { name: null }, status: 'waiting', turn: 'player1',
-        dice: 0, diceRolled: false, timer: 50, winner: null,
-        board: { tokens: { player1: [-1,-1,-1,-1], player2:[-1,-1,-1,-1] } }
-    });
+    try {
+        // FIX: Ab match code random generate hoga (Loading hang nahi hoga)
+        const randomCode = Math.floor(Math.random() * 9000) + 1000;
+        const code = `Tech_${randomCode}`;
+        
+        await set(ref(db, `matches/${code}`), {
+            player1: { name: name }, 
+            player2: { name: null }, 
+            status: 'waiting', 
+            turn: 'player1',
+            dice: 0, 
+            diceRolled: false, 
+            timer: 50, 
+            winner: null,
+            board: { tokens: { player1:[-1,-1,-1,-1], player2:[-1,-1,-1,-1] } }
+        });
 
-    localPlayer = { name, id: 'player1', matchCode: code };
-    localStorage.setItem('techludo', JSON.stringify(localPlayer));
-    document.getElementById('display-match-code').textContent = code;
-    showScreen('lobby');
-    startGame(code, 'player1');
+        localPlayer = { name: name, id: 'player1', matchCode: code };
+        localStorage.setItem('techludo', JSON.stringify(localPlayer));
+        document.getElementById('display-match-code').textContent = code;
+        showScreen('lobby');
+        startGame(code, 'player1');
+    } catch (error) {
+        console.error(error);
+        showToast("Error: " + error.message);
+        showScreen('home');
+    }
 });
 
 document.getElementById('btn-join').addEventListener('click', () => {
-    if(!document.getElementById('player-name').value.trim()) return showToast("Enter your name");
+    if(!document.getElementById('player-name').value.trim()) return showToast("Enter your name!");
     document.getElementById('join-modal').classList.remove('hidden');
 });
 
@@ -58,21 +71,27 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
 document.getElementById('btn-confirm-join').addEventListener('click', async () => {
     const name = document.getElementById('player-name').value.trim();
     const code = document.getElementById('match-code-input').value.trim();
-    if (!code) return showToast("Enter code");
+    if (!code) return showToast("Enter code!");
     
     document.getElementById('join-modal').classList.add('hidden');
     showScreen('loading');
     
-    const snap = await get(ref(db, `matches/${code}`));
-    if (!snap.exists()) { showToast("Not Found"); return showScreen('home'); }
-    if (snap.val().status !== 'waiting') { showToast("Match Full"); return showScreen('home'); }
+    try {
+        const snap = await get(ref(db, `matches/${code}`));
+        if (!snap.exists()) { showToast("Match Not Found!"); return showScreen('home'); }
+        if (snap.val().status !== 'waiting') { showToast("Match Already Full!"); return showScreen('home'); }
 
-    await update(ref(db, `matches/${code}`), { "player2/name": name, status: 'playing' });
-    localPlayer = { name, id: 'player2', matchCode: code };
-    localStorage.setItem('techludo', JSON.stringify(localPlayer));
-    
-    showScreen('game');
-    startGame(code, 'player2');
+        await update(ref(db, `matches/${code}`), { "player2/name": name, status: 'playing' });
+        localPlayer = { name: name, id: 'player2', matchCode: code };
+        localStorage.setItem('techludo', JSON.stringify(localPlayer));
+        
+        showScreen('game');
+        startGame(code, 'player2');
+    } catch (error) {
+        console.error(error);
+        showToast("Error Joining Match!");
+        showScreen('home');
+    }
 });
 
 async function checkReconnect() {
@@ -98,5 +117,3 @@ async function checkReconnect() {
 document.getElementById('btn-return-home').addEventListener('click', () => {
     stopGame(); localStorage.removeItem('techludo'); window.location.reload();
 });
-
-export { navigateTo: showScreen };
