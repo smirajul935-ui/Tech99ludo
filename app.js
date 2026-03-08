@@ -1,119 +1,164 @@
-import { db, ref, get, set, update } from './firebase.js';
-import { startGame, stopGame } from './game.js';
+/* app.js */
+import { db, ref, set, get, update, onValue, runTransaction } from './firebase.js';
 
 const screens = {
     loading: document.getElementById('loading-screen'),
-    home: document.getElementById('home-screen'),
-    lobby: document.getElementById('lobby-screen'),
+    auth: document.getElementById('auth-screen'),
+    waiting: document.getElementById('waiting-screen'),
     game: document.getElementById('game-screen')
 };
 
-let localPlayer = { name: '', id: '', matchCode: '' };
+const UI = {
+    playerName: document.getElementById('player-name'),
+    btnCreate: document.getElementById('btn-create'),
+    btnShowJoin: document.getElementById('btn-show-join'),
+    joinSection: document.getElementById('join-section'),
+    matchCodeInput: document.getElementById('match-code-input'),
+    btnJoin: document.getElementById('btn-join'),
+    authError: document.getElementById('auth-error'),
+    displayMatchCode: document.getElementById('display-match-code')
+};
 
-window.addEventListener('DOMContentLoaded', checkReconnect);
+let currentMatchCode = localStorage.getItem('techLudo_matchCode');
+let currentPlayerId = localStorage.getItem('techLudo_playerId');
+window.gameState = null;
+window.isPlayer1 = false;
+window.isPlayer2 = false;
 
-function showScreen(screenName) {
-    Object.values(screens).forEach(s => s.classList.add('hidden'));
-    if(screens[screenName]) screens[screenName].classList.remove('hidden');
+function switchScreen(screenName) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[screenName].classList.add('active');
 }
 
-function showToast(msg) {
-    const toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 3000);
+function generateId() {
+    return Math.random().toString(36).substr(2, 9);
 }
 
-document.getElementById('btn-create').addEventListener('click', async () => {
-    const name = document.getElementById('player-name').value.trim();
-    if (!name) return showToast("Enter your name!");
-    
-    showScreen('loading');
-    
-    try {
-        // FIX: Ab match code random generate hoga (Loading hang nahi hoga)
-        const randomCode = Math.floor(Math.random() * 9000) + 1000;
-        const code = `Tech_${randomCode}`;
-        
-        await set(ref(db, `matches/${code}`), {
-            player1: { name: name }, 
-            player2: { name: null }, 
-            status: 'waiting', 
-            turn: 'player1',
-            dice: 0, 
-            diceRolled: false, 
-            timer: 50, 
-            winner: null,
-            board: { tokens: { player1:[-1,-1,-1,-1], player2:[-1,-1,-1,-1] } }
-        });
+function showError(msg) {
+    UI.authError.innerText = msg;
+    setTimeout(() => UI.authError.innerText = '', 3000);
+}
 
-        localPlayer = { name: name, id: 'player1', matchCode: code };
-        localStorage.setItem('techludo', JSON.stringify(localPlayer));
-        document.getElementById('display-match-code').textContent = code;
-        showScreen('lobby');
-        startGame(code, 'player1');
-    } catch (error) {
-        console.error(error);
-        showToast("Error: " + error.message);
-        showScreen('home');
-    }
-});
-
-document.getElementById('btn-join').addEventListener('click', () => {
-    if(!document.getElementById('player-name').value.trim()) return showToast("Enter your name!");
-    document.getElementById('join-modal').classList.remove('hidden');
-});
-
-document.getElementById('btn-cancel-join').addEventListener('click', () => {
-    document.getElementById('join-modal').classList.add('hidden');
-});
-
-document.getElementById('btn-confirm-join').addEventListener('click', async () => {
-    const name = document.getElementById('player-name').value.trim();
-    const code = document.getElementById('match-code-input').value.trim();
-    if (!code) return showToast("Enter code!");
-    
-    document.getElementById('join-modal').classList.add('hidden');
-    showScreen('loading');
-    
-    try {
-        const snap = await get(ref(db, `matches/${code}`));
-        if (!snap.exists()) { showToast("Match Not Found!"); return showScreen('home'); }
-        if (snap.val().status !== 'waiting') { showToast("Match Already Full!"); return showScreen('home'); }
-
-        await update(ref(db, `matches/${code}`), { "player2/name": name, status: 'playing' });
-        localPlayer = { name: name, id: 'player2', matchCode: code };
-        localStorage.setItem('techludo', JSON.stringify(localPlayer));
-        
-        showScreen('game');
-        startGame(code, 'player2');
-    } catch (error) {
-        console.error(error);
-        showToast("Error Joining Match!");
-        showScreen('home');
-    }
-});
-
-async function checkReconnect() {
-    const saved = localStorage.getItem('techludo');
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        try {
-            const snap = await get(ref(db, `matches/${parsed.matchCode}`));
-            if (snap.exists() && (snap.val().status === 'playing' || snap.val().status === 'waiting')) {
-                localPlayer = parsed;
-                if(snap.val().status === 'waiting' && localPlayer.id === 'player1') {
-                    document.getElementById('display-match-code').textContent = localPlayer.matchCode;
-                    showScreen('lobby');
-                } else { showScreen('game'); }
-                return startGame(localPlayer.matchCode, localPlayer.id);
+async function init() {
+    if (currentMatchCode && currentPlayerId) {
+        const matchRef = ref(db, `matches/${currentMatchCode}`);
+        const snap = await get(matchRef);
+        if (snap.exists()) {
+            const data = snap.val();
+            if (data.status === 'playing' || data.status === 'waiting') {
+                listenToMatch(currentMatchCode);
+                return;
             }
-        } catch(e) {}
+        }
+        localStorage.clear();
     }
-    localStorage.removeItem('techludo');
-    showScreen('home');
+    switchScreen('auth');
 }
 
-document.getElementById('btn-return-home').addEventListener('click', () => {
-    stopGame(); localStorage.removeItem('techludo'); window.location.reload();
+UI.btnShowJoin.addEventListener('click', () => {
+    UI.joinSection.classList.remove('hidden');
+    UI.btnShowJoin.classList.add('hidden');
 });
+
+UI.btnCreate.addEventListener('click', async () => {
+    let name = UI.playerName.value.trim();
+    if (!name) return showError("Enter Your Name");
+    switchScreen('loading');
+
+    const counterRef = ref(db, 'matchCounter');
+    const result = await runTransaction(counterRef, (currentData) => {
+        return (currentData || 0) + 1;
+    });
+
+    const matchNum = result.snapshot.val();
+    const matchCode = `Tech_${matchNum}`;
+    const playerId = generateId();
+
+    const initialTokens = {};
+    ['r','g','y','b'].forEach(c => {
+        for(let i=0; i<4; i++) initialTokens[`${c}${i}`] = -1;
+    });
+
+    const matchData = {
+        player1: { id: playerId, name: name },
+        player2: { id: null, name: null },
+        status: 'waiting',
+        turn: 'player1',
+        dice: 0,
+        diceRolled: false,
+        turnStartTime: Date.now(),
+        tokens: initialTokens,
+        winner: null
+    };
+
+    await set(ref(db, `matches/${matchCode}`), matchData);
+    
+    localStorage.setItem('techLudo_matchCode', matchCode);
+    localStorage.setItem('techLudo_playerId', playerId);
+    localStorage.setItem('techLudo_playerName', name);
+    
+    listenToMatch(matchCode);
+});
+
+UI.btnJoin.addEventListener('click', async () => {
+    let name = UI.playerName.value.trim();
+    let code = UI.matchCodeInput.value.trim();
+    if (!name) return showError("Enter Your Name");
+    if (!code) return showError("Enter Match Code");
+    
+    switchScreen('loading');
+    const matchRef = ref(db, `matches/${code}`);
+    const snap = await get(matchRef);
+    
+    if (!snap.exists()) {
+        switchScreen('auth');
+        return showError("Match Not Found");
+    }
+
+    const data = snap.val();
+    if (data.player2.id) {
+        switchScreen('auth');
+        return showError("Match Full");
+    }
+
+    const playerId = generateId();
+    await update(matchRef, {
+        player2: { id: playerId, name: name },
+        status: 'playing',
+        turnStartTime: Date.now()
+    });
+
+    localStorage.setItem('techLudo_matchCode', code);
+    localStorage.setItem('techLudo_playerId', playerId);
+    localStorage.setItem('techLudo_playerName', name);
+
+    listenToMatch(code);
+});
+
+function listenToMatch(code) {
+    const matchRef = ref(db, `matches/${code}`);
+    onValue(matchRef, (snap) => {
+        const data = snap.val();
+        if(!data) return;
+        
+        window.gameState = data;
+        window.matchCode = code;
+        
+        let pid = localStorage.getItem('techLudo_playerId');
+        window.isPlayer1 = data.player1 && data.player1.id === pid;
+        window.isPlayer2 = data.player2 && data.player2.id === pid;
+
+        if (data.status === 'waiting') {
+            UI.displayMatchCode.innerText = code;
+            switchScreen('waiting');
+        } else if (data.status === 'playing') {
+            if(document.getElementById('waiting-screen').classList.contains('active') || document.getElementById('loading-screen').classList.contains('active')){
+                switchScreen('game');
+                if(window.initGame) window.initGame();
+            }
+            if(window.updateGameState) window.updateGameState(data);
+        }
+    });
+}
+
+init();
