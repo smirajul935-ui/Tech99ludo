@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TechLudo - Multiplayer Ludo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="screen">
+        <div class="loader"></div>
+        <h2>Loading...</h2>
+    </div>
+
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen hidden">
+        <div class="glass-panel">
+            <img src="https://iili.io/qIVRdDQ.md.png" alt="Game Logo" class="logo">
+            <h1 class="title">TechLudo</h1>
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Enter Your Name" maxlength="20" required>
+            </div>
+            <div class="button-group">
+                <button id="btn-create" class="btn-primary">Create Match</button>
+                <button id="btn-join" class="btn-secondary">Join Match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Match Modal -->
+    <div id="join-modal" class="modal hidden">
+        <div class="glass-panel">
+            <h2>Enter Match Code</h2>
+            <input type="text" id="match-code-input" placeholder="e.g. Tech_1">
+            <div class="button-group">
+                <button id="btn-confirm-join" class="btn-primary">Join</button>
+                <button id="btn-cancel-join" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="screen hidden">
+        <div class="glass-panel">
+            <h2>Match Created!</h2>
+            <div class="match-code-display">
+                Match Code: <span id="display-match-code" class="highlight"></span>
+            </div>
+            <p class="waiting-text">Waiting for player 2 to join...</p>
+            <div class="loader-small"></div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen hidden">
+        <div class="game-header">
+            <div class="player-info p1-info">
+                <span class="color-dot red"></span>
+                <span id="p1-name">Player 1</span>
+            </div>
+            <div class="timer-box">
+                <span id="turn-indicator">Waiting...</span><br>
+                <span id="timer-display">Time Left: 50s</span>
+            </div>
+            <div class="player-info p2-info">
+                <span id="p2-name">Player 2</span>
+                <span class="color-dot yellow"></span>
+            </div>
+        </div>
+
+        <div class="board-container">
+            <div id="ludo-board" class="ludo-board"></div>
+            <div id="tokens-container" class="tokens-container"></div>
+        </div>
+
+        <div class="game-controls">
+            <div class="dice-container">
+                <div id="dice-display" class="dice">🎲</div>
+                <button id="btn-roll-dice" class="btn-primary" disabled>Roll Dice 🎲</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="modal hidden">
+        <div class="glass-panel">
+            <h1 class="winner-title">Winner 🎉</h1>
+            <h2 id="winner-name" class="highlight">Player: </h2>
+            <div class="button-group">
+                <button id="btn-play-again" class="btn-primary">Play Again</button>
+                <button id="btn-return-home" class="btn-secondary">Return Home</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
