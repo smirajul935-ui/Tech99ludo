@@ -1,102 +1,94 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TechLudo - Multiplayer Ludo</title>
+    <title>TechLudo</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="toast" class="toast hidden"></div>
-
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="screen">
+    <div id="loading-screen" class="screen active">
         <div class="loader"></div>
-        <h2>Loading...</h2>
+        <h2>Loading TechLudo...</h2>
     </div>
 
-    <!-- Home Screen -->
-    <div id="home-screen" class="screen hidden">
-        <div class="glass-panel">
-            <img src="https://iili.io/qIVRdDQ.md.png" alt="Game Logo" class="logo">
+    <div id="auth-screen" class="screen">
+        <div class="glass-card">
+            <img src="https://iili.io/qIVRdDQ.md.png" alt="TechLudo Logo" class="logo">
             <h1 class="title">TechLudo</h1>
-            <div class="input-group">
-                <input type="text" id="player-name" placeholder="Enter Your Name" maxlength="20" required>
+            <input type="text" id="player-name" placeholder="Enter Your Name" maxlength="20">
+            <div class="buttons">
+                <button id="btn-create" class="btn gradient-btn">Create Match</button>
+                <button id="btn-show-join" class="btn gradient-btn">Join Match</button>
             </div>
-            <div class="button-group">
-                <button id="btn-create" class="btn-primary">Create Match</button>
-                <button id="btn-join" class="btn-secondary">Join Match</button>
+            <div id="join-section" class="hidden">
+                <input type="text" id="match-code-input" placeholder="Enter Match Code">
+                <button id="btn-join" class="btn gradient-btn">Join Now</button>
             </div>
+            <p id="auth-error" class="error-msg"></p>
         </div>
     </div>
 
-    <!-- Join Match Modal -->
-    <div id="join-modal" class="modal hidden">
-        <div class="glass-panel">
-            <h2>Enter Match Code</h2>
-            <input type="text" id="match-code-input" placeholder="e.g. Tech_1">
-            <div class="button-group">
-                <button id="btn-confirm-join" class="btn-primary">Join</button>
-                <button id="btn-cancel-join" class="btn-secondary">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Lobby Screen -->
-    <div id="lobby-screen" class="screen hidden">
-        <div class="glass-panel">
+    <div id="waiting-screen" class="screen">
+        <div class="glass-card">
             <h2>Match Created!</h2>
-            <div class="match-code-display">
-                Match Code: <span id="display-match-code" class="highlight"></span>
+            <div class="match-code-box">
+                <p>Match Code:</p>
+                <h1 id="display-match-code">Tech_1</h1>
             </div>
-            <p class="waiting-text">Waiting for player 2 to join...</p>
-            <div class="loader-small"></div>
+            <p class="pulse-text">Waiting for player to join...</p>
         </div>
     </div>
 
-    <!-- Game Screen -->
-    <div id="game-screen" class="screen hidden">
-        <div class="game-header">
-            <div class="player-info p1-info">
-                <span class="color-dot red"></span>
-                <span id="p1-name">Player 1</span>
+    <div id="game-screen" class="screen">
+        <div class="top-bar">
+            <div class="player-info" id="p2-info">
+                <span class="p-name">Player 2</span>
+                <div class="colors-indicator">
+                    <span class="color-dot green"></span>
+                    <span class="color-dot blue"></span>
+                </div>
             </div>
             <div class="timer-box">
-                <span id="turn-indicator">Waiting...</span><br>
-                <span id="timer-display">Time Left: 50s</span>
-            </div>
-            <div class="player-info p2-info">
-                <span id="p2-name">Player 2</span>
-                <span class="color-dot yellow"></span>
+                Time Left: <span id="timer-display">50</span>s
             </div>
         </div>
 
         <div class="board-container">
-            <div id="ludo-board" class="ludo-board"></div>
-            <div id="tokens-container" class="tokens-container"></div>
+            <div id="ludo-board"></div>
         </div>
 
-        <div class="game-controls">
-            <div class="dice-container">
-                <div id="dice-display" class="dice">🎲</div>
-                <button id="btn-roll-dice" class="btn-primary" disabled>Roll Dice 🎲</button>
+        <div class="bottom-bar">
+            <div class="player-info" id="p1-info">
+                <span class="p-name">Player 1</span>
+                <div class="colors-indicator">
+                    <span class="color-dot red"></span>
+                    <span class="color-dot yellow"></span>
+                </div>
+            </div>
+            <div class="controls">
+                <div id="dice-container">
+                    <div id="dice" class="dice">1</div>
+                </div>
+                <button id="btn-roll" class="btn gradient-btn" disabled>Roll Dice 🎲</button>
             </div>
         </div>
     </div>
 
-    <!-- Winner Modal -->
-    <div id="winner-modal" class="modal hidden">
-        <div class="glass-panel">
-            <h1 class="winner-title">Winner 🎉</h1>
-            <h2 id="winner-name" class="highlight">Player: </h2>
-            <div class="button-group">
-                <button id="btn-play-again" class="btn-primary">Play Again</button>
-                <button id="btn-return-home" class="btn-secondary">Return Home</button>
+    <div id="winner-popup" class="hidden popup-overlay">
+        <div class="glass-card popup-content">
+            <h1>Winner 🎉</h1>
+            <h2 id="winner-name">Player</h2>
+            <div class="buttons">
+                <button id="btn-play-again" class="btn gradient-btn">Play Again</button>
+                <button id="btn-home" class="btn gradient-btn">Return Home</button>
             </div>
         </div>
     </div>
 
     <script type="module" src="firebase.js"></script>
     <script type="module" src="app.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 </html>
