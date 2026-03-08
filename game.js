@@ -1,5 +1,4 @@
 import { db, ref, onValue, update } from './firebase.js';
-import { navigateTo } from './app.js';
 
 let matchId, playerId, gameState, unsub, timerInt;
 
@@ -43,7 +42,13 @@ export function startGame(mId, pId) {
     });
     unsub = onValue(ref(db, `matches/${matchId}`), s => {
         if(!s.exists()) return; gameState = s.val();
-        if(gameState.status==='playing' && document.getElementById('lobby-screen').className.indexOf('hidden') === -1) navigateTo('game');
+        
+        // FIX: Screen transition ko direct kar diya
+        if(gameState.status==='playing' && document.getElementById('lobby-screen').className.indexOf('hidden') === -1) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById('game-screen').classList.remove('hidden');
+        }
+        
         updateUI(); render();
         if(gameState.winner) { document.getElementById('winner-name').innerText=gameState[gameState.winner].name; document.getElementById('winner-modal').classList.remove('hidden'); }
     });
@@ -110,4 +115,4 @@ function render() {
             t.classList.toggle('active', gameState.turn===playerId && p===playerId && gameState.diceRolled && ((pos===-1&&gameState.dice===6)||(pos>=0&&pos+gameState.dice<=57)));
         });
     });
-                                                                               }
+}                                                                               }
